@@ -9,9 +9,18 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+
+  # --- 图标 ---
   cupertino_icons: ^1.0.8
+
+  # --- 状态管理 ---
   flutter_riverpod: ^2.5.1
+
+  # --- 播放器 (必须要有这两个) ---
   just_audio: ^0.9.36
+  just_audio_background: ^0.0.1-beta.11  # <--- 核心依赖
+
+  # --- 其他工具 ---
   on_audio_query: ^2.9.0
   permission_handler: ^11.3.0
   hive: ^2.2.3
@@ -27,12 +36,14 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  
+  # ⚠️ 资源路径配置 (只保留存在的文件夹)
   assets:
-    - assets/
     - assets/audio/
     - assets/icons/
     - assets/scene/
-    - assets/images/
+    # - assets/images/  <-- 这一行删掉了，因为它不存在会导致崩溃
+    # - assets/         <-- 这一行也建议删掉，除非你在 assets 根目录下直接放了文件
 
 flutter_launcher_icons:
   android: "launcher_icon"

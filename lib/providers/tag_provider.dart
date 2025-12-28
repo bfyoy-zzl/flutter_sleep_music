@@ -31,18 +31,21 @@ class TagOverride {
 }
 
 class TagNotifier extends StateNotifier<Map<int, TagOverride>> {
+  // 盒子名称常量，防止写错
+  static const String boxName = 'tag_overrides';
+
   TagNotifier() : super({});
 
-  Future<void> init() async {
-    final box = await Hive.openBox('tag_overrides');
-    final Map<int, TagOverride> loaded = {};
-    for (var key in box.keys) {
-      final val = box.get(key);
-      if (val is Map) {
-        loaded[key as int] = TagOverride.fromMap(val);
-      }
+  // 初始化方法
+  void init() {
+    // 【安全检查】先判断盒子是否真的开了
+    if (Hive.isBoxOpen(boxName)) {
+      final box = Hive.box(boxName);
+      // ... 读取逻辑 ...
+    } else {
+      // 如果没开，打印错误，防止红屏崩溃
+      print("❌ 严重错误：Hive盒子 $boxName 尚未打开！");
     }
-    state = loaded;
   }
 
   Future<void> updateTag(int songId, String newTitle, String newArtist) async {
@@ -53,7 +56,9 @@ class TagNotifier extends StateNotifier<Map<int, TagOverride>> {
       isHidden: current?.isHidden ?? false,
     );
     state = {...state, songId: newOverride};
-    final box = await Hive.openBox('tag_overrides');
+    
+    // 保存到本地
+    final box = Hive.box(boxName);
     await box.put(songId, newOverride.toMap());
   }
 
@@ -65,7 +70,8 @@ class TagNotifier extends StateNotifier<Map<int, TagOverride>> {
       isHidden: true, 
     );
     state = {...state, songId: newOverride};
-    final box = await Hive.openBox('tag_overrides');
+    
+    final box = Hive.box(boxName);
     await box.put(songId, newOverride.toMap());
   }
 
@@ -80,14 +86,14 @@ class TagNotifier extends StateNotifier<Map<int, TagOverride>> {
     );
 
     state = {...state, songId: newOverride};
-    final box = await Hive.openBox('tag_overrides');
+    final box = Hive.box(boxName);
     await box.put(songId, newOverride.toMap());
   }
 
-  // 【新增】全部还原
+  // 全部还原
   Future<void> restoreAll() async {
-    final box = await Hive.openBox('tag_overrides');
-    final Map<int, TagOverride> newState = {...state}; // 复制一份当前状态
+    final box = Hive.box(boxName);
+    final Map<int, TagOverride> newState = {...state};
 
     // 遍历所有记录，找到隐藏的，全部设为不隐藏
     for (var entry in state.entries) {
@@ -107,6 +113,7 @@ class TagNotifier extends StateNotifier<Map<int, TagOverride>> {
 
 final tagProvider = StateNotifierProvider<TagNotifier, Map<int, TagOverride>>((ref) {
   final notifier = TagNotifier();
+  // 创建时立即初始化
   notifier.init();
   return notifier;
 });

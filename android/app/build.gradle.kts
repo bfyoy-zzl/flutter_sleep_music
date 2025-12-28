@@ -6,22 +6,17 @@ plugins {
 }
 
 android {
-    // 【关键】这是你APP的身份证，必须要有
     namespace = "com.example.my_music_player"
-    ndkVersion = "27.0.12077973"
     compileSdk = flutter.compileSdkVersion
+    ndkVersion = flutter.ndkVersion
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_1_8
-        targetCompatibility = JavaVersion.VERSION_1_8
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
 
     kotlinOptions {
-        jvmTarget = "1.8"
-    }
-
-    sourceSets {
-        getByName("main").java.srcDirs("src/main/kotlin")
+        jvmTarget = JavaVersion.VERSION_17.toString()
     }
 
     defaultConfig {

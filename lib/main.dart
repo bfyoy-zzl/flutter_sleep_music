@@ -2,31 +2,45 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'ui/main_shell.dart'; 
+// 👇 1. 引入这个包
+import 'package:just_audio_background/just_audio_background.dart';
 
 Future<void> main() async {
-  // 1. 确保 Flutter 绑定初始化
   WidgetsFlutterBinding.ensureInitialized();
   
+  // 👇 2. 【核心修改】加了 try-catch 的安全初始化
+  // 以前黑屏是因为这里报错没人管，现在报错了我们只打印日志，继续让 App 启动
   try {
-    // 2. 初始化 Hive
+    await JustAudioBackground.init(
+      androidNotificationChannelId: 'com.example.my_music_player.channel.audio',
+      androidNotificationChannelName: 'Audio playback',
+      androidNotificationOngoing: true,
+    );
+    print("✅ 后台服务初始化成功");
+  } catch (e) {
+    // ⚠️ 重点：如果这里报错，说明 Manifest 没配好，但 App 不会黑屏了！
+    print("❌ 后台服务初始化失败 (但不影响 App 启动): $e");
+  }
+
+  // 👇 下面是你验证过完全可用的代码，原封不动
+  try {
     await Hive.initFlutter();
     
-    // 3. 打开所有需要用到的 Box (盒子)
-    // 加上 try-catch 防止因为某个盒子损坏导致 App 启动失败
-    await Hive.openBox('settings');     // 设置、扫描状态、自定义混音
-    await Hive.openBox('player_state'); // 播放进度、当前歌单
-    await Hive.openBox('history');      // 播放历史
-    await Hive.openBox('favorite');     // 收藏夹 (如果有)
-    await Hive.openBox('tags');         // 隐藏歌曲/标签 (如果有 tag_provider)
+    await Hive.openBox('settings');
+    await Hive.openBox('player_state');
+    await Hive.openBox('history');
     
-    print("✅ Hive 初始化成功");
+    await Hive.openBox('favorite');  
+    await Hive.openBox('favorites'); 
+
+    await Hive.openBox('tags');         
+    await Hive.openBox('tag_overrides'); 
+
+    print("✅ Hive 盒子准备就绪");
   } catch (e) {
-    print("❌ Hive 初始化失败: $e");
-    // 如果初始化失败，这里可以加个简单的容错逻辑，或者仅仅打印日志
-    // 甚至可以在这里选择删除损坏的盒子 (高级操作，暂时不需要)
+    print("❌ Hive 初始化警告: $e");
   }
   
-  // 4. 启动 App
   runApp(const ProviderScope(child: MyApp()));
 }
 

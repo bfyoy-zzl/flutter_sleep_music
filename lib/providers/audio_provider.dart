@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:on_audio_query/on_audio_query.dart';
+import 'package:just_audio_background/just_audio_background.dart'; // 导入后台库
 import 'sleep_player_provider.dart'; 
 import 'history_provider.dart';
 import 'tag_provider.dart';
@@ -27,12 +28,10 @@ final allSongsProvider = FutureProvider<List<SongModel>>((ref) async {
 
     final overrides = ref.watch(tagProvider);
     if (overrides.isNotEmpty) {
-      songs = songs
-        .where((s) {
+      songs = songs.where((s) {
           if (overrides.containsKey(s.id)) return overrides[s.id]!.isHidden == false; 
           return true;
-        })
-        .map((originalSong) {
+        }).map((originalSong) {
           if (overrides.containsKey(originalSong.id)) {
             final override = overrides[originalSong.id]!;
             Map<String, dynamic> newMap = Map<String, dynamic>.from(originalSong.getMap);
@@ -158,9 +157,18 @@ class AudioController {
 
       if (initialPlaylist.isNotEmpty) {
         final song = initialPlaylist[initialIndex];
-        // 还原：这里不带 tag: MediaItem
-        _player.setAudioSource(
-          AudioSource.uri(Uri.parse(song.uri!)),
+        // 【核心】初始化时也要设置 tag，否则第一次打开通知栏没信息
+        await _player.setAudioSource(
+          AudioSource.uri(
+            Uri.parse(song.uri!),
+            tag: MediaItem(
+              id: song.id.toString(),
+              album: song.album ?? "未知专辑",
+              title: song.title,
+              artist: song.artist ?? "未知艺术家",
+              artUri: Uri.parse("content://media/external/audio/albumart/${song.albumId}"),
+            ),
+          ),
           initialPosition: Duration.zero,
           preload: true, 
         ).catchError((_) {});
@@ -222,10 +230,27 @@ class AudioController {
         ref.read(currentPlaylistProvider.notifier).setList(targetList);
       }
 
-      // 还原：这里不带 tag: MediaItem
-      await _player.setAudioSource(AudioSource.uri(Uri.parse(song.uri!)));
+      // 【核心】播放时传入 MediaItem，通知栏才能显示信息
+      // 如果没有这个 tag，通知栏就是空的
+      await _player.setAudioSource(
+        AudioSource.uri(
+          Uri.parse(song.uri!),
+          // 【必须加这个 tag】通知栏才能知道现在放的是什么歌
+          tag: MediaItem(
+            id: song.id.toString(),
+            album: song.album ?? "未知专辑",
+            title: song.title,
+            artist: song.artist ?? "未知艺术家",
+            // 尝试获取封面，没有则为空
+            artUri: Uri.parse("content://media/external/audio/albumart/${song.albumId}"),
+          ),
+        )
+      );
       
+      // 确保音量正常
+      await _player.setVolume(1.0);
       _player.play();
+      
       ref.read(currentSongIndexProvider.notifier).state = index;
       ref.read(historyProvider.notifier).recordPlay(song.id);
       _saveState(targetList, index);
@@ -233,7 +258,16 @@ class AudioController {
   }
 
   Future<void> playWhiteNoise(String url) async {
-     await _player.setAudioSource(AudioSource.uri(Uri.parse(url)));
+     await _player.setAudioSource(
+       AudioSource.uri(
+         Uri.parse(url),
+         tag: const MediaItem(
+           id: "whitenoise",
+           title: "助眠白噪音",
+           artist: "梦音岛",
+         )
+       )
+     );
      _player.play();
      ref.read(currentSongIndexProvider.notifier).state = 9999;
   }
