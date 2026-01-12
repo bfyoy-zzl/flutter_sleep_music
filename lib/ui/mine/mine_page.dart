@@ -1,8 +1,7 @@
-import 'dart:ui' as ui; 
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:on_audio_query/on_audio_query.dart';
-import 'dart:math'; // 确保引入 math 库
 import '../../core/theme/app_theme.dart';
 import '../../providers/audio_provider.dart';
 import '../../providers/favorite_provider.dart';
@@ -21,10 +20,23 @@ class MinePage extends ConsumerStatefulWidget {
 }
 
 class _MinePageState extends ConsumerState<MinePage> {
-  
+  String _currentQuote = "";
+
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _updateQuote();
+    });
+  }
+
+  void _updateQuote() {
+    final quotes = ref.read(quoteProvider);
+    setState(() {
+      _currentQuote = quotes.isNotEmpty 
+          ? quotes[DateTime.now().second % quotes.length] 
+          : "Good Night";
+    });
   }
 
   // 新建歌单弹窗
@@ -122,9 +134,11 @@ class _MinePageState extends ConsumerState<MinePage> {
     final playlists = ref.watch(playlistProvider);
     
     final quotes = ref.watch(quoteProvider);
-    final currentQuote = quotes.isNotEmpty 
-        ? quotes[DateTime.now().second % quotes.length] 
-        : "Good Night";
+    if (_currentQuote.isEmpty) {
+      _currentQuote = quotes.isNotEmpty 
+          ? quotes[DateTime.now().second % quotes.length] 
+          : "Good Night";
+    }
 
     List<dynamic> historyIds = [];
     if (historyRaw is List) {
@@ -178,16 +192,19 @@ class _MinePageState extends ConsumerState<MinePage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text("Good Night,", style: TextStyle(color: Colors.white54, fontSize: 16)),
-                          const SizedBox(height: 8),
-                          Text(
-                            currentQuote, 
-                            style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold, fontFamily: 'serif', letterSpacing: 1.0),
-                          ),
-                        ],
+                      child: GestureDetector(
+                        onTap: _updateQuote,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text("Good Night,", style: TextStyle(color: Colors.white54, fontSize: 16)),
+                            const SizedBox(height: 8),
+                            Text(
+                              _currentQuote, 
+                              style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold, fontFamily: 'serif', letterSpacing: 1.0),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                     IconButton(
@@ -202,14 +219,14 @@ class _MinePageState extends ConsumerState<MinePage> {
                 ),
               ),
 
-              const SizedBox(height: 30),
+              const SizedBox(height: 20),
 
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: _buildSearchBar(context),
               ),
 
-              const SizedBox(height: 30),
+              const SizedBox(height: 20),
               
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -229,7 +246,7 @@ class _MinePageState extends ConsumerState<MinePage> {
                 ),
               ),
               
-              const SizedBox(height: 25),
+              const SizedBox(height: 15),
               
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 25),
@@ -339,7 +356,7 @@ class _MinePageState extends ConsumerState<MinePage> {
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
                         color: color.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.circular(20),
                       ),
                       child: Icon(icon, color: color, size: 24),
                     ),
@@ -370,11 +387,11 @@ class _MinePageState extends ConsumerState<MinePage> {
 
   // 【修改】自定义歌单列表项添加毛玻璃效果
   Widget _buildPlaylistItem(
-    BuildContext context, 
-    IconData icon, 
-    String title, 
-    String subtitle, 
-    Color bgColor, 
+    BuildContext context,
+    IconData icon,
+    String title,
+    String subtitle,
+    Color bgColor,
     Color iconColor,
     List<SongModel> songs,
     String playlistId,
@@ -382,20 +399,21 @@ class _MinePageState extends ConsumerState<MinePage> {
     return GestureDetector(
       onTap: () {
         Navigator.push(
-          context, 
+          context,
           MaterialPageRoute(
             builder: (_) => SongListPage(title: title, songs: songs, playlistId: playlistId)
           )
         );
       },
+      behavior: HitTestBehavior.opaque,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(16),
           child: BackdropFilter(
             filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10), // 毛玻璃强度
             child: Container(
-              padding: const EdgeInsets.all(15),
+              padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: Colors.white.withOpacity(0.05), // 半透明背景
                 borderRadius: BorderRadius.circular(16),
@@ -404,14 +422,15 @@ class _MinePageState extends ConsumerState<MinePage> {
               child: Row(
                 children: [
                   Container(
-                    width: 50, height: 50,
-                    decoration: BoxDecoration(color: bgColor, borderRadius: BorderRadius.circular(12)),
+                    width: 40, height: 40,
+                    decoration: BoxDecoration(color: bgColor, borderRadius: BorderRadius.circular(20)),
                     child: Icon(icon, color: iconColor, size: 26),
                   ),
                   const SizedBox(width: 15),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(title, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
                         const SizedBox(height: 2),
@@ -421,7 +440,9 @@ class _MinePageState extends ConsumerState<MinePage> {
                   ),
                   IconButton(
                     icon: Icon(Icons.play_circle_fill_rounded, color: Colors.white.withOpacity(0.5), size: 28),
-                    onPressed: () => _playList(songs), 
+                    onPressed: () => _playList(songs),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
                   ),
                 ],
               ),

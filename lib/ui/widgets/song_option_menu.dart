@@ -2,11 +2,9 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:on_audio_query/on_audio_query.dart';
-import '../../core/theme/app_theme.dart';
 import '../../providers/audio_provider.dart';
 import '../../providers/favorite_provider.dart';
 import '../../providers/playlist_provider.dart';
-import '../../providers/tag_provider.dart'; // 【新增】引入 TagProvider
 import 'edit_tag_sheet.dart';
 
 class SongOptionMenu extends ConsumerWidget {

@@ -1,47 +1,69 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
-// 定义一个 StateNotifier 来管理收藏列表
-// 它维护的状态是一个 List<int>，里面存的是歌曲的 ID
 class FavoriteNotifier extends StateNotifier<List<int>> {
+  // 构造函数：初始化时状态为空，并立即触发异步加载
   FavoriteNotifier() : super([]) {
-    _loadFavorites();
+    _init();
   }
 
-  // 获取数据库盒子
-  Box get _box => Hive.box('favorites');
+  // 盒子名称常量
+  static const String _boxName = 'favorites';
 
-  // 1. 加载所有收藏
-  void _loadFavorites() {
-    // 从 Hive 读取数据，如果没有数据就返回空列表
-    final List<dynamic> ids = _box.get('ids', defaultValue: []);
-    // 转换成 int 列表并更新状态
-    state = ids.cast<int>();
+  // 【核心修复】异步初始化方法
+  Future<void> _init() async {
+    Box box;
+    try {
+      // 1. 安全检查：如果盒子没开，就现在打开它
+      if (!Hive.isBoxOpen(_boxName)) {
+        box = await Hive.openBox(_boxName);
+      } else {
+        box = Hive.box(_boxName);
+      }
+
+      // 2. 加载数据
+      final List<dynamic> ids = box.get('ids', defaultValue: []);
+      if (mounted) {
+        state = ids.cast<int>();
+      }
+    } catch (e) {
+      print("❌ FavoriteNotifier 初始化失败: $e");
+      // 发生错误时保持空列表，防止红屏
+      state = [];
+    }
   }
 
-  // 2. 切换收藏状态 (喜欢 <-> 不喜欢)
-  void toggleFavorite(int songId) {
+  // 获取盒子（辅助方法，确保安全）
+  Future<Box> _getBox() async {
+    if (!Hive.isBoxOpen(_boxName)) {
+      return await Hive.openBox(_boxName);
+    }
+    return Hive.box(_boxName);
+  }
+
+  // 2. 切换收藏状态
+  Future<void> toggleFavorite(int songId) async {
+    final box = await _getBox(); // 等待获取盒子
+    
     if (state.contains(songId)) {
-      // 如果已经在列表里，就移除
       state = [
         for (final id in state)
           if (id != songId) id
       ];
     } else {
-      // 【修改点】把新 ID 放在数组的最前面 (index 0)
       state = [songId, ...state];
     }
     // 保存到数据库
-    _box.put('ids', state);
+    await box.put('ids', state);
   }
 
   // 3. 检查某首歌是否被收藏
+  // 注意：UI层调用这个方法是同步的，基于当前 state 判断，非常快且安全
   bool isFavorite(int songId) {
     return state.contains(songId);
   }
 }
 
-// 暴露 Provider 给 UI 使用
 final favoriteProvider = StateNotifierProvider<FavoriteNotifier, List<int>>((ref) {
   return FavoriteNotifier();
 });

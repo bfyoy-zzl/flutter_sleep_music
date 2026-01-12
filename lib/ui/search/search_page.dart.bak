@@ -20,6 +20,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   final TextEditingController _searchController = TextEditingController();
   String _keyword = "";
   
+  // === 选择模式状态 ===
   bool _isSelectionMode = false;
   final Set<int> _selectedIds = {}; 
 
@@ -28,6 +29,8 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     _searchController.dispose();
     super.dispose();
   }
+
+  // === 逻辑方法 ===
 
   void _toggleSelectionMode() {
     setState(() {
@@ -49,6 +52,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     });
   }
 
+  // 批量操作：添加到收藏
   void _batchAddToFavorite(List<SongModel> allSongs) {
     final favNotifier = ref.read(favoriteProvider.notifier);
     final currentFavs = ref.read(favoriteProvider);
@@ -63,6 +67,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     _exitSelectionMode("成功收藏 $count 首歌曲");
   }
 
+  // 批量操作：添加到指定自定义歌单
   void _batchAddToPlaylist(String playlistId, String playlistName) {
     final playlistNotifier = ref.read(playlistProvider.notifier);
     
@@ -73,6 +78,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     _exitSelectionMode("已将 ${_selectedIds.length} 首歌曲添加到「$playlistName」");
   }
 
+  // 批量操作：删除
   Future<void> _batchDelete() async {
     final audioController = ref.read(audioControllerProvider);
 
@@ -84,7 +90,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   }
 
   void _exitSelectionMode(String message) {
-    Navigator.pop(context);
+    Navigator.pop(context); // 关闭底部弹窗
     setState(() {
       _isSelectionMode = false;
       _selectedIds.clear();
@@ -92,6 +98,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 
+  // 【新增】显示批量操作的毛玻璃菜单
   void _showBatchMenu(List<SongModel> results, List<CustomPlaylist> playlists) {
     showModalBottomSheet(
       context: context,
@@ -101,14 +108,17 @@ class _SearchPageState extends ConsumerState<SearchPage> {
         borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         child: Stack(
           children: [
+            // 1. 毛玻璃背景
             Positioned.fill(
               child: BackdropFilter(
                 filter: ui.ImageFilter.blur(sigmaX: 25.0, sigmaY: 25.0),
                 child: Container(
-                  color: const Color(0xFF2C2C2C).withOpacity(0.3),
+                  color: const Color(0xFF2C2C2C).withOpacity(0.3), // 通透深色
                 ),
               ),
             ),
+            
+            // 2. 内容区域
             Container(
               decoration: BoxDecoration(
                 border: Border(top: BorderSide(color: Colors.white.withOpacity(0.1), width: 0.5)),
@@ -117,17 +127,22 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    // 标题
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 15),
                       child: Text("已选择 ${_selectedIds.length} 首歌曲", 
                         style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
                     ),
                     const Divider(height: 1, color: Colors.white24),
+                    
+                    // 选项1: 批量收藏
                     ListTile(
                       leading: const Icon(Icons.favorite, color: Colors.white),
                       title: const Text("批量收藏", style: TextStyle(color: Colors.white)),
                       onTap: () => _batchAddToFavorite(results),
                     ),
+
+                    // 选项2: 动态歌单列表
                     ...playlists.map((p) {
                       return ListTile(
                         leading: const Icon(Icons.queue_music, color: Colors.white),
@@ -135,11 +150,14 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                         onTap: () => _batchAddToPlaylist(p.id, p.name),
                       );
                     }).toList(),
+
+                    // 选项3: 批量删除
                     ListTile(
                       leading: const Icon(Icons.delete_forever, color: Colors.redAccent),
                       title: const Text("批量删除", style: TextStyle(color: Colors.redAccent)),
                       onTap: () => _batchDelete(),
                     ),
+                    
                     const SizedBox(height: 20),
                   ],
                 ),
@@ -172,13 +190,14 @@ class _SearchPageState extends ConsumerState<SearchPage> {
         WillPopScope(
           onWillPop: () async {
             if (_isSelectionMode) {
+              // 在选择模式下，第一次返回取消选择
               setState(() {
                 _isSelectionMode = false;
                 _selectedIds.clear();
               });
-              return false;
+              return false; // 阻止返回
             }
-            return true;
+            return true; // 允许返回
           },
           child: Scaffold(
             backgroundColor: Colors.transparent,
@@ -210,6 +229,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     );
   }
 
+  // === 顶部栏 ===
   Widget _buildHeader(List<SongModel> results, List<CustomPlaylist> playlists) {
     final hasResults = results.isNotEmpty;
     final hasSelection = _selectedIds.isNotEmpty;
@@ -238,8 +258,10 @@ class _SearchPageState extends ConsumerState<SearchPage> {
             style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
           ),
           const Spacer(),
+
           if (hasResults) ...[
             if (_isSelectionMode) ...[
+              // 取消选择按钮（在单选或多选后显示）
               if (hasSelection)
                 TextButton(
                   onPressed: () {
@@ -249,6 +271,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                   },
                   child: const Text("取消选择", style: TextStyle(color: Colors.white70)),
                 ),
+              // 全选/取消全选按钮
               TextButton(
                 onPressed: () => _toggleSelectAll(results),
                 child: Text(
@@ -256,17 +279,20 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                   style: const TextStyle(color: Colors.white70),
                 ),
               ),
+              // 批量操作按钮
               if (hasSelection)
                 IconButton(
                   icon: const Icon(Icons.menu_open, color: AppTheme.accentPurple),
                   onPressed: () => _showBatchMenu(results, playlists),
                 ),
+              // 取消按钮
               if (!hasSelection)
                 TextButton(
                   onPressed: _toggleSelectionMode,
                   child: const Text("取消", style: TextStyle(color: Colors.white)),
                 ),
             ] else ...[
+              // 选择按钮
               TextButton(
                 onPressed: _toggleSelectionMode,
                 child: const Text("选择", style: TextStyle(color: Colors.white)),
@@ -311,151 +337,114 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   Widget _buildListItem(SongModel song) {
     final isSelected = _selectedIds.contains(song.id);
 
-    // 获取当前播放歌曲信息
-    final currentPlaylist = ref.watch(currentPlaylistProvider);
-    final currentIndex = ref.watch(currentSongIndexProvider);
-    final isPlayingSong = currentIndex != null &&
-        currentIndex < currentPlaylist.length &&
-        currentPlaylist[currentIndex].id == song.id;
-
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        border: _isSelectionMode ? Border.all(
-          color: isSelected ? AppTheme.accentPurple : Colors.transparent,
-          width: 1,
-        ) : null,
-      ),
-      child: GestureDetector(
-          onTap: () {
-            if (_isSelectionMode) {
-              setState(() {
-                if (isSelected) {
-                  _selectedIds.remove(song.id);
+        margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          border: _isSelectionMode ? Border.all(
+            color: isSelected ? AppTheme.accentPurple : Colors.transparent,
+            width: 1
+          ) : null,
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: Material(
+            color: _isSelectionMode
+                ? (isSelected
+                    ? AppTheme.accentPurple.withOpacity(0.2)
+                    : Colors.white.withOpacity(0.05))
+                : Colors.transparent,
+            child: InkWell(
+              onTap: () {
+                if (_isSelectionMode) {
+                  setState(() {
+                    if (isSelected) _selectedIds.remove(song.id);
+                    else _selectedIds.add(song.id);
+                  });
                 } else {
-                  _selectedIds.add(song.id);
+                  ref.read(audioControllerProvider).playSong(song);
+                  FocusScope.of(context).unfocus();
                 }
-              });
-            } else {
-              ref.read(audioControllerProvider).playSong(song);
-              FocusScope.of(context).unfocus();
-            }
-          },
-          behavior: HitTestBehavior.opaque,
-          child: Container(
-            decoration: BoxDecoration(
+              },
+              splashColor: AppTheme.accentPurple.withOpacity(0.3),
+              highlightColor: AppTheme.accentPurple.withOpacity(0.1),
               borderRadius: BorderRadius.circular(16),
-              color: _isSelectionMode
-                  ? (isSelected
-                      ? AppTheme.accentPurple.withOpacity(0.2)
-                      : Colors.white.withOpacity(0.05))
-                  : Colors.transparent,
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(10),
-              child: Row(
-                children: [
-                  Container(
-                    width: 50,
-                    height: 50,
-                    decoration: const BoxDecoration(shape: BoxShape.circle),
-                    child: ClipOval(
-                      child: isPlayingSong
-                        ? Container(
-                            decoration: const BoxDecoration(
-                              color: AppTheme.accentPurple,
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(
-                              Icons.equalizer_rounded,
-                              color: Colors.white,
-                              size: 24,
-                            ),
-                          )
-                        : QueryArtworkWidget(
-                            id: song.id,
-                            type: ArtworkType.AUDIO,
-                            nullArtworkWidget: Container(
-                              color: Colors.white10,
-                              child: const Icon(Icons.music_note, color: Colors.white54),
-                            ),
-                          ),
-                    ),
-                  ),
-                  const SizedBox(width: 15),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          song.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: isPlayingSong ? AppTheme.accentPurple : Colors.white,
-                            fontSize: 16,
-                            fontWeight: isPlayingSong ? FontWeight.bold : FontWeight.normal,
+              child: Padding(
+                padding: const EdgeInsets.all(10),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 50, height: 50,
+                      decoration: const BoxDecoration(shape: BoxShape.circle),
+                      child: ClipOval(
+                        child: QueryArtworkWidget(
+                          id: song.id,
+                          type: ArtworkType.AUDIO,
+                          nullArtworkWidget: Container(
+                            color: Colors.white10,
+                            child: const Icon(Icons.music_note, color: Colors.white54),
                           ),
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          song.artist ?? "未知",
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(color: Colors.white54, fontSize: 12),
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (_isSelectionMode)
-                    Transform.scale(
-                      scale: 1.1,
-                      child: Checkbox(
-                        value: isSelected,
-                        activeColor: AppTheme.accentPurple,
-                        side: const BorderSide(color: Colors.white54, width: 2),
-                        shape: const CircleBorder(),
-                        onChanged: (val) {
-                          setState(() {
-                            if (val == true) {
-                              _selectedIds.add(song.id);
-                            } else {
-                              _selectedIds.remove(song.id);
-                            }
-                          });
-                        },
                       ),
                     ),
-                  if (!_isSelectionMode)
-                    Consumer(
-                      builder: (context, ref, child) {
-                        final favorites = ref.watch(favoriteProvider);
-                        final isFav = favorites.contains(song.id);
-                        return IconButton(
-                          icon: Icon(
-                            isFav ? Icons.favorite : Icons.favorite_border,
-                            color: isFav ? Colors.redAccent : Colors.white38,
-                            size: 24,
-                          ),
-                          onPressed: () => ref.read(favoriteProvider.notifier).toggleFavorite(song.id),
-                        );
-                      },
+                    const SizedBox(width: 15),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(song.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 16)),
+                          const SizedBox(height: 4),
+                          Text(song.artist ?? "未知", maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white54, fontSize: 12)),
+                        ],
+                      ),
                     ),
-                  if (!_isSelectionMode)
-                    IconButton(
-                      icon: const Icon(Icons.more_vert, color: Colors.white38),
-                      onPressed: () {
-                        showModalBottomSheet(
-                          context: context,
-                          backgroundColor: Colors.transparent,
-                          isScrollControlled: true,
-                          builder: (ctx) => SongOptionMenu(song: song),
-                        );
-                      },
-                    ),
-                ],
+                    if (_isSelectionMode)
+                      Transform.scale(
+                        scale: 1.1,
+                        child: Checkbox(
+                          value: isSelected,
+                          activeColor: AppTheme.accentPurple,
+                          side: const BorderSide(color: Colors.white54, width: 2),
+                          shape: const CircleBorder(),
+                          onChanged: (val) {
+                             setState(() {
+                               if (val == true) {
+                                 _selectedIds.add(song.id);
+                               } else {
+                                 _selectedIds.remove(song.id);
+                               }
+                             });
+                          },
+                        ),
+                      ),
+                    if (!_isSelectionMode)
+                      Consumer(
+                        builder: (context, ref, child) {
+                          final favorites = ref.watch(favoriteProvider);
+                          final isFav = favorites.contains(song.id);
+                          return IconButton(
+                            icon: Icon(isFav ? Icons.favorite : Icons.favorite_border, 
+                              color: isFav ? Colors.redAccent : Colors.white38, size: 24),
+                            onPressed: () => ref.read(favoriteProvider.notifier).toggleFavorite(song.id),
+                          );
+                        },
+                      ),
+                    if (!_isSelectionMode)
+                      IconButton(
+                        icon: const Icon(Icons.more_vert, color: Colors.white38),
+                        onPressed: () {
+                           showModalBottomSheet(
+                            context: context,
+                            backgroundColor: Colors.transparent,
+                            isScrollControlled: true,
+                            builder: (ctx) => SongOptionMenu(song: song),
+                          );
+                        },
+                      ),
+                  ],
+                ),
               ),
+            ),
           ),
         ),
       ),

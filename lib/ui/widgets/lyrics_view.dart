@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
-import '../../core/theme/app_theme.dart';
 import '../../providers/audio_provider.dart';
 
 class LyricsView extends ConsumerStatefulWidget {

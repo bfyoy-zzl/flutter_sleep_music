@@ -28,7 +28,6 @@ class _MainShellState extends ConsumerState<MainShell> {
   void initState() {
     super.initState();
     // 启动后尝试初始化控制器
-    // 如果还没扫描过，这里什么都不会发生，绝对安全
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(audioControllerProvider).init();
     });
@@ -74,16 +73,15 @@ class _MainShellState extends ConsumerState<MainShell> {
                     borderRadius: BorderRadius.circular(35),
                     border: Border.all(color: Colors.white.withOpacity(0.2), width: 0.5),
                   ),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: [
-                        _buildNavItem(0, Icons.nightlight_round, "助眠"),
-                        _buildNavItem(1, Icons.music_note_rounded, "音乐"),
-                        _buildNavItem(2, Icons.person_rounded, "我的"),
-                      ],
-                    ),
+                  // 移除 padding，让点击区域能延伸到边缘
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      // 👇 【修改1】使用 Expanded 强制三等分宽度
+                      Expanded(child: _buildNavItem(0, Icons.nightlight_round, "助眠")),
+                      Expanded(child: _buildNavItem(1, Icons.music_note_rounded, "音乐")),
+                      Expanded(child: _buildNavItem(2, Icons.person_rounded, "我的")),
+                    ],
                   ),
                 ),
               ),
@@ -99,40 +97,48 @@ class _MainShellState extends ConsumerState<MainShell> {
     final isSelected = _currentIndex == index;
 
     return GestureDetector(
+      // 👇 【修改2】这一行非常关键，允许点击透明区域
+      behavior: HitTestBehavior.translucent,
       onTap: () {
         setState(() => _currentIndex = index);
       },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOutQuad,
-        padding: EdgeInsets.symmetric(
-          horizontal: isSelected ? 20 : 12,
-          vertical: 10
-        ),
-        decoration: BoxDecoration(
-          color: isSelected ? AppTheme.accentPurple.withOpacity(0.2) : Colors.transparent,
-          borderRadius: BorderRadius.circular(30),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              color: isSelected ? AppTheme.accentPurple : Colors.white54,
-              size: 26,
-            ),
-            if (isSelected) ...[
-              const SizedBox(width: 8),
-              Text(
-                label,
-                style: const TextStyle(
-                  color: AppTheme.accentPurple,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
-                ),
+      // 👇 【修改3】用一个透明容器撑满 Expanded 分配的空间
+      child: Container(
+        height: double.infinity, // 纵向撑满
+        alignment: Alignment.center, // 保证内容居中
+        color: Colors.transparent, // 显式透明色，辅助点击判定
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOutQuad,
+          padding: EdgeInsets.symmetric(
+            horizontal: isSelected ? 20 : 12,
+            vertical: 10
+          ),
+          decoration: BoxDecoration(
+            color: isSelected ? AppTheme.accentPurple.withOpacity(0.2) : Colors.transparent,
+            borderRadius: BorderRadius.circular(30),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                icon,
+                color: isSelected ? AppTheme.accentPurple : Colors.white54,
+                size: 26,
               ),
+              if (isSelected) ...[
+                const SizedBox(width: 8),
+                Text(
+                  label,
+                  style: const TextStyle(
+                    color: AppTheme.accentPurple,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );

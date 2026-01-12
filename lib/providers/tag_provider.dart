@@ -36,15 +36,33 @@ class TagNotifier extends StateNotifier<Map<int, TagOverride>> {
 
   TagNotifier() : super({});
 
-  // 初始化方法
-  void init() {
-    // 【安全检查】先判断盒子是否真的开了
-    if (Hive.isBoxOpen(boxName)) {
+  // 初始化方法 - 从 Hive 加载数据
+  Future<void> init() async {
+    try {
+      // 确保盒子已打开
+      if (!Hive.isBoxOpen(boxName)) {
+        await Hive.openBox(boxName);
+      }
+      
       final box = Hive.box(boxName);
-      // ... 读取逻辑 ...
-    } else {
-      // 如果没开，打印错误，防止红屏崩溃
-      print("❌ 严重错误：Hive盒子 $boxName 尚未打开！");
+      final Map<int, TagOverride> loadedData = {};
+      
+      // 从 Hive 加载所有标签数据
+      for (var key in box.keys) {
+        if (key is int) {
+          final value = box.get(key);
+          if (value is Map) {
+            loadedData[key] = TagOverride.fromMap(value);
+          }
+        }
+      }
+      
+      // 更新状态
+      state = loadedData;
+      print("✅ 标签数据已加载，共 ${loadedData.length} 条记录");
+    } catch (e) {
+      print("❌ 标签数据加载失败: $e");
+      state = {};
     }
   }
 

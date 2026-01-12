@@ -38,19 +38,40 @@ class _MusicPlayerPageState extends ConsumerState<MusicPlayerPage>
 
   // 手动请求权限并扫描
   Future<void> _requestAndScan() async {
+    // 请求多个权限以适配不同 Android 版本
+    // Android 13+ 需要 Permission.audio
+    // Android 12及以下 需要 Permission.storage
     Map<Permission, PermissionStatus> statuses = await [
       Permission.audio,
       Permission.storage,
     ].request();
 
+    // 只要有其中一个被授予，就算成功
     bool isGranted = statuses[Permission.audio] == PermissionStatus.granted || 
                      statuses[Permission.storage] == PermissionStatus.granted;
 
     if (isGranted) {
+      // 获得权限后，刷新列表
       ref.read(audioControllerProvider).scanLocalSongs();
     } else {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("需要权限才能扫描音乐")));
+        // 如果被永久拒绝，建议引导用户去设置页
+        if (statuses[Permission.audio] == PermissionStatus.permanentlyDenied ||
+            statuses[Permission.storage] == PermissionStatus.permanentlyDenied) {
+           showDialog(
+             context: context,
+             builder: (ctx) => AlertDialog(
+               title: const Text("权限说明"),
+               content: const Text("请在设置中开启音频访问权限，否则无法扫描本地音乐。"),
+               actions: [
+                 TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("取消")),
+                 TextButton(onPressed: () => openAppSettings(), child: const Text("去设置")),
+               ],
+             )
+           );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("需要权限才能扫描音乐")));
+        }
       }
     }
   }
@@ -71,6 +92,7 @@ class _MusicPlayerPageState extends ConsumerState<MusicPlayerPage>
     final currentIndex = ref.watch(currentSongIndexProvider);
     final songListAsync = ref.watch(allSongsProvider);
     final playMode = ref.watch(playModeProvider);
+    final currentPlaylist = ref.watch(currentPlaylistProvider);
 
     if (isPlaying) {
       if (!_rotationController.isAnimating) _rotationController.repeat();
@@ -111,7 +133,10 @@ class _MusicPlayerPageState extends ConsumerState<MusicPlayerPage>
             );
           }
 
-          final currentSong = currentIndex != null ? songs[currentIndex] : songs[0];
+          // 【关键修复】从 currentPlaylist 获取当前歌曲，而不是从 allSongs
+          final currentSong = currentIndex != null && currentIndex < currentPlaylist.length
+              ? currentPlaylist[currentIndex]
+              : (currentPlaylist.isNotEmpty ? currentPlaylist[0] : songs[0]);
 
           return Column(
             children: [
@@ -203,17 +228,17 @@ class _MusicPlayerPageState extends ConsumerState<MusicPlayerPage>
     IconData modeIcon;
     Color modeColor = Colors.white70;
     switch (mode) {
-      case PlayMode.single: 
+      case PlayMode.single:
         modeIcon = Icons.repeat_one_rounded; // 圆润图标
-        modeColor = AppTheme.accentPurple; 
+        modeColor = AppTheme.accentPurple;
         break;
-      case PlayMode.shuffle: 
+      case PlayMode.shuffle:
         modeIcon = Icons.shuffle_rounded; // 圆润图标
-        modeColor = AppTheme.accentPurple; 
+        modeColor = AppTheme.accentPurple;
         break;
-      case PlayMode.sequence: default: 
+      case PlayMode.sequence:
         modeIcon = Icons.repeat_rounded; // 圆润图标
-        modeColor = Colors.white70; 
+        modeColor = Colors.white70;
         break;
     }
 
@@ -393,17 +418,17 @@ class _PlaylistBottomSheetState extends ConsumerState<PlaylistBottomSheet> {
                           itemCount: displayList.length,
                           itemBuilder: (context, index) {
                             final song = displayList[index];
-                            final isPlayingSong = currentIndex != null && 
-                                                  currentIndex < currentPlaylist.length && 
+                            final isPlayingSong = currentIndex != null &&
+                                                  currentIndex < currentPlaylist.length &&
                                                   currentPlaylist[currentIndex].id == song.id;
 
                             return ListTile(
                               contentPadding: const EdgeInsets.symmetric(horizontal: 25, vertical: 0),
-                              leading: isPlayingSong 
+                              leading: isPlayingSong
                                 ? const Icon(Icons.equalizer_rounded, color: AppTheme.accentPurple, size: 24) // 圆润音律
                                 : Text("${index + 1}", style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 14)),
                               title: RichText(
-                                maxLines: 1, 
+                                maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 text: TextSpan(
                                   style: TextStyle(color: isPlayingSong ? AppTheme.accentPurple : Colors.white, fontSize: 16),
@@ -411,7 +436,7 @@ class _PlaylistBottomSheetState extends ConsumerState<PlaylistBottomSheet> {
                                 ),
                               ),
                               subtitle: RichText(
-                                maxLines: 1, 
+                                maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 text: TextSpan(
                                   style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12),
@@ -419,7 +444,8 @@ class _PlaylistBottomSheetState extends ConsumerState<PlaylistBottomSheet> {
                                 ),
                               ),
                               onTap: () {
-                                 ref.read(audioControllerProvider).playSong(song);
+                                 // 将当前显示的列表设置为播放列表，确保高亮正确
+                                 ref.read(audioControllerProvider).playSong(song, newPlaylist: displayList);
                                  FocusScope.of(context).unfocus();
                               },
                             );

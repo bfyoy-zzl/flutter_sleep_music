@@ -18,6 +18,7 @@ class EditTagSheet extends ConsumerStatefulWidget {
 class _EditTagSheetState extends ConsumerState<EditTagSheet> {
   late TextEditingController _titleController;
   late TextEditingController _artistController;
+  bool _isIdentified = false; // 是否已经识别过
 
   @override
   void initState() {
@@ -34,21 +35,29 @@ class _EditTagSheetState extends ConsumerState<EditTagSheet> {
   }
 
   void _autoIdentify() {
-    final fileName = widget.song.displayNameWOExt;
-    if (fileName.contains('-')) {
-      final parts = fileName.split('-');
-      if (parts.length >= 2) {
-        setState(() {
-          _artistController.text = parts[0].trim();
-          _titleController.text = parts.sublist(1).join('-').trim();
-        });
-        // 【已修改】移除成功提示
-        // ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("已尝试从文件名智能识别")));
-        return;
+    if (!_isIdentified) {
+      // 第一次点击：自动识别
+      final fileName = widget.song.displayNameWOExt;
+      if (fileName.contains('-')) {
+        final parts = fileName.split('-');
+        if (parts.length >= 2) {
+          setState(() {
+            _artistController.text = parts[0].trim();
+            _titleController.text = parts.sublist(1).join('-').trim();
+            _isIdentified = true;
+          });
+          return;
+        }
       }
+    } else {
+      // 第二次点击：数据互换
+      setState(() {
+        final temp = _titleController.text;
+        _titleController.text = _artistController.text;
+        _artistController.text = temp;
+        _isIdentified = false; // 重置状态，可以再次识别
+      });
     }
-    // 【已修改】移除失败提示
-    // ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("文件名格式无法识别，请手动输入")));
   }
 // ... 前面的代码不变 ...
 
@@ -57,22 +66,36 @@ class _EditTagSheetState extends ConsumerState<EditTagSheet> {
     final newArtist = _artistController.text.trim();
 
     if (newTitle.isEmpty) {
-      // 这里的错误提示建议保留，否则用户不知道为什么没反应
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("歌名不能为空")));
       return;
     }
 
-    // 1. 保存到 Hive
+    // 1. 保存到 Hive（用于显示覆盖）
     await ref.read(tagProvider.notifier).updateTag(
       widget.song.id, 
       newTitle, 
       newArtist
     );
 
-    // 2. 刷新全部歌曲
+    // 2. 尝试修改本地文件标签（注意：on_audio_query 插件可能不支持此功能）
+    // 目前只保存到 Hive 作为显示覆盖，不影响实际文件
+    try {
+      final OnAudioQuery audioQuery = OnAudioQuery();
+      // 注意：edit 方法可能不可用，这里暂时注释掉
+      // final success = await audioQuery.edit(
+      //   widget.song.id,
+      //   title: newTitle,
+      //   artist: newArtist,
+      // );
+      print("⚠️ 本地文件标签修改功能暂不可用，仅保存显示覆盖");
+    } catch (e) {
+      print("❌ 本地文件标签更新异常: $e");
+    }
+
+    // 3. 刷新全部歌曲
     final newAllSongs = await ref.refresh(allSongsProvider.future);
 
-    // 3. 同步更新播放列表
+    // 4. 同步更新播放列表
     final currentPlaylist = ref.read(currentPlaylistProvider);
     try {
       final updatedSong = newAllSongs.firstWhere((s) => s.id == widget.song.id);
@@ -84,8 +107,6 @@ class _EditTagSheetState extends ConsumerState<EditTagSheet> {
 
     if (mounted) {
       Navigator.pop(context);
-      // 【已修改】注释掉下面这一行，保存成功不再弹出提示
-      // ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("标签已更新")));
     }
   }
 
@@ -138,7 +159,10 @@ class _EditTagSheetState extends ConsumerState<EditTagSheet> {
                             TextButton.icon(
                               onPressed: _autoIdentify,
                               icon: const Icon(Icons.auto_fix_high, size: 16, color: AppTheme.accentPurple),
-                              label: const Text("自动识别", style: TextStyle(color: AppTheme.accentPurple, fontSize: 14)),
+                              label: Text(
+                                _isIdentified ? "互换数据" : "自动识别",
+                                style: const TextStyle(color: AppTheme.accentPurple, fontSize: 14),
+                              ),
                               style: TextButton.styleFrom(
                                 padding: EdgeInsets.zero,
                                 minimumSize: const Size(0, 0),

@@ -36,17 +36,17 @@ class HiddenSongsPage extends ConsumerWidget {
             // 【新增】全部还原按钮
             actions: [
               TextButton(
-                onPressed: hiddenIds.isEmpty 
+                onPressed: hiddenIds.isEmpty
                   ? null // 列表为空时禁用
                   : () async {
                       // 1. 全部还原
                       await ref.read(tagProvider.notifier).restoreAll();
                       // 2. 刷新主列表
-                      ref.refresh(allSongsProvider);
+                      ref.refresh(allSongsProvider); // ignore: unused_result
                       // 这里也无需提示，因为列表瞬间清空，反馈很明显
                   },
                 child: Text(
-                  "全部还原", 
+                  "全部还原",
                   style: TextStyle(
                     color: hiddenIds.isEmpty ? Colors.white38 : AppTheme.accentPurple,
                     fontSize: 14,
@@ -95,7 +95,7 @@ class HiddenSongsPage extends ConsumerWidget {
                               // 1. 恢复歌曲
                               await ref.read(tagProvider.notifier).restoreSong(song.id);
                               // 2. 刷新主列表 (让 MinePage 等地方重新显示出来)
-                              ref.refresh(allSongsProvider);
+                              ref.refresh(allSongsProvider); // ignore: unused_result
                               // 【已修改】移除了 SnackBar 提示
                             },
                           ),

@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 // 1. 场景列表元数据 (对应 prebuilt_scene_config.json)
 class SceneMeta {
   final String title;
